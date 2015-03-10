@@ -242,9 +242,10 @@ def snapshot_get_all(context):
     return IMPL.snapshot_get_all(context)
 
 
-def snapshot_get_all_by_project(context, project_id):
+def snapshot_get_all_by_project(context, project_id, include_public=False):
     """Get all snapshots belonging to a project."""
-    return IMPL.snapshot_get_all_by_project(context, project_id)
+    return IMPL.snapshot_get_all_by_project(context, project_id,
+                                            include_public)
 
 
 def snapshot_get_all_for_cgsnapshot(context, project_id):

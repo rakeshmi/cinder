@@ -59,6 +59,7 @@ class Snapshot(base.CinderPersistentObject, base.CinderObject,
         'metadata': fields.DictOfStringsField(),
 
         'volume': fields.ObjectField('Volume', nullable=True),
+        'is_public': fields.BooleanField(default=False),
     }
 
     @property

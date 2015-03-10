@@ -39,6 +39,7 @@ from cinder import keymgr
 from cinder import objects
 from cinder.objects import base as objects_base
 from cinder.openstack.common import log as logging
+from cinder.openstack.common import strutils
 import cinder.policy
 from cinder import quota
 from cinder import quota_utils
@@ -456,8 +457,19 @@ class API(base.Base):
             del search_opts['all_tenants']
             snapshots = self.db.snapshot_get_all(context)
         else:
-            snapshots = self.db.snapshot_get_all_by_project(
-                context, context.project_id)
+            if('include_public' in search_opts):
+                search_opts['include_public'] = \
+                    strutils.bool_from_string(search_opts['include_public'])
+                snapshots = \
+                    self.db.\
+                    snapshot_get_all_by_project(context,
+                                                context.project_id,
+                                                search_opts['include_public'])
+                del search_opts['include_public']
+            else:
+                snapshots = \
+                    self.db.\
+                    snapshot_get_all_by_project(context, context.project_id)
 
         if search_opts:
             LOG.debug("Searching by: %s", search_opts)
@@ -566,12 +578,12 @@ class API(base.Base):
                                                   new_project)
 
     def _create_snapshot(self, context,
-                         volume, name, description,
+                         volume, name, description, is_public,
                          force=False, metadata=None,
                          cgsnapshot_id=None):
         snapshot = self.create_snapshot_in_db(
             context, volume, name,
-            description, force, metadata, cgsnapshot_id)
+            description, force, metadata, cgsnapshot_id, is_public)
         self.volume_rpcapi.create_snapshot(context, volume, snapshot)
 
         return snapshot
@@ -579,7 +591,7 @@ class API(base.Base):
     def create_snapshot_in_db(self, context,
                               volume, name, description,
                               force, metadata,
-                              cgsnapshot_id):
+                              cgsnapshot_id, is_public):
         check_policy(context, 'create_snapshot', volume)
 
         if volume['migration_status'] is not None:
@@ -655,7 +667,8 @@ class API(base.Base):
                 'display_description': description,
                 'volume_type_id': volume['volume_type_id'],
                 'encryption_key_id': volume['encryption_key_id'],
-                'metadata': metadata or {}
+                'metadata': metadata or {},
+                'is_public': is_public
             }
             snapshot = objects.Snapshot(context=context, **kwargs)
             snapshot.create()
@@ -792,15 +805,17 @@ class API(base.Base):
         return options
 
     def create_snapshot(self, context,
-                        volume, name, description,
+                        volume, name, description, is_public=False,
                         metadata=None, cgsnapshot_id=None):
-        return self._create_snapshot(context, volume, name, description,
+        return self._create_snapshot(context, volume, name,
+                                     description, is_public,
                                      False, metadata, cgsnapshot_id)
 
     def create_snapshot_force(self, context,
                               volume, name,
-                              description, metadata=None):
-        return self._create_snapshot(context, volume, name, description,
+                              description, is_public=False, metadata=None):
+        return self._create_snapshot(context, volume,
+                                     name, description, is_public,
                                      True, metadata)
 
     @wrap_check_policy

@@ -47,17 +47,21 @@ def _get_default_snapshot_param():
         'created_at': None,
         'display_name': 'Default name',
         'display_description': 'Default description',
+        'is_public': False,
+        'project_id': 'fakeproject'
     }
 
 
 def stub_snapshot_create(self, context,
                          volume_id, name,
-                         description, metadata):
+                         description, is_public, metadata):
     snapshot = _get_default_snapshot_param()
     snapshot['volume_id'] = volume_id
     snapshot['display_name'] = name
     snapshot['display_description'] = description
     snapshot['metadata'] = metadata
+    snapshot['is_public'] = is_public
+    snapshot['project_id'] = context.project_id
     return snapshot
 
 
@@ -106,6 +110,30 @@ class SnapshotApiTest(test.TestCase):
         resp_dict = self.controller.create(req, body)
 
         self.assertIn('snapshot', resp_dict)
+        self.assertEqual(resp_dict['snapshot']['name'],
+                         snapshot_name)
+        self.assertEqual(resp_dict['snapshot']['description'],
+                         snapshot_description)
+
+    def test_create_public_snapshot(self):
+        self.stubs.Set(volume.api.API, "create_snapshot", stub_snapshot_create)
+        self.stubs.Set(volume.api.API, 'get', stubs.stub_volume_get)
+        snapshot_name = 'Snapshot Test Name'
+        snapshot_description = 'Snapshot Test Desc'
+        is_public = True
+        snapshot = {
+            "volume_id": '12',
+            "force": False,
+            "name": snapshot_name,
+            "description": snapshot_description,
+            "is_public": is_public
+        }
+
+        body = dict(snapshot=snapshot)
+        req = fakes.HTTPRequest.blank('/v2/snapshots')
+        resp_dict = self.controller.create(req, body)
+        self.assertIn('snapshot', resp_dict)
+        self.assertEqual(resp_dict['snapshot']['is_public'], is_public)
         self.assertEqual(resp_dict['snapshot']['name'],
                          snapshot_name)
         self.assertEqual(resp_dict['snapshot']['description'],
@@ -160,6 +188,34 @@ class SnapshotApiTest(test.TestCase):
         self.assertRaises(webob.exc.HTTPBadRequest,
                           self.controller.create, req, body)
 
+    def test_snapshot_modify_attribute(self):
+        self.stubs.Set(volume.api.API, "get_snapshot", stub_snapshot_get)
+        self.stubs.Set(volume.api.API, "update_snapshot",
+                       stubs.stub_snapshot_update)
+        updates = {
+            "is_public": True,
+        }
+        body = {"snapshot": updates}
+
+        req = fakes.HTTPRequest.blank('/v2/snapshots/%s' % UUID)
+        res_dict = self.controller.update(req, UUID, body)
+        expected = {
+            'snapshot': {
+                'id': UUID,
+                'volume_id': 12,
+                'status': 'available',
+                'size': 100,
+                'created_at': None,
+                'name': 'Default name',
+                'description': 'Default description',
+                'metadata': {},
+                'is_own': True,
+                'is_public': True,
+
+            }
+        }
+        self.assertEqual(expected, res_dict)
+
     @mock.patch.object(volume.api.API, "update_snapshot",
                        side_effect=stubs.stub_snapshot_update)
     @mock.patch('cinder.db.snapshot_metadata_get', return_value=dict())
@@ -175,8 +231,9 @@ class SnapshotApiTest(test.TestCase):
             'display_name': 'Default name',
             'display_description': 'Default description',
             'expected_attrs': ['metadata'],
+            'project_id': 'fakeproject'
         }
-        ctx = context.RequestContext('admin', 'fake', True)
+        ctx = context.RequestContext('admin', 'fakeproject', True)
         snapshot_obj = fake_snapshot.fake_snapshot_obj(ctx, **snapshot)
         fake_volume_obj = fake_volume.fake_volume_obj(ctx)
         snapshot_get_by_id.return_value = snapshot_obj
@@ -198,6 +255,8 @@ class SnapshotApiTest(test.TestCase):
                 'name': u'Updated Test Name',
                 'description': u'Default description',
                 'metadata': {},
+                'is_own': True,
+                'is_public': False,
             }
         }
         self.assertEqual(expected, res_dict)
@@ -303,6 +362,46 @@ class SnapshotApiTest(test.TestCase):
         resp_snapshot = resp_snapshots.pop()
         self.assertEqual(resp_snapshot['id'], UUID)
 
+    def test_snapshot_list_by_project_include_public_snapshots(self):
+        snapshotsList = [
+            stubs.stub_snapshot(1, project_id='fakeproject',
+                                volume_id='vol1',
+                                status='available',
+                                is_public=True),
+            stubs.stub_snapshot(2, project_id='fakeproject2',
+                                volume_id='vol2',
+                                status='available',
+                                is_public=True),
+            stubs.stub_snapshot(3, project_id='fakeproject',
+                                volume_id='vol1',
+                                status='available'),
+            stubs.stub_snapshot(2, project_id='fakeproject3',
+                                volume_id='vol2',
+                                status='available',
+                                is_public=False)
+        ]
+
+        def stub_snapshot_get_all_by_project(context, project_id,
+                                             include_public=False):
+            snapshots = []
+            if(include_public is True):
+                for snapshot in snapshotsList:
+                    if(snapshot['project_id'] == project_id
+                       or snapshot['is_public'] is True):
+                        snapshots.append(snapshot)
+            else:
+                for snapshot in snapshotsList:
+                    if(snapshot['project_id'] == project_id):
+                        snapshots.append(snapshot)
+            return snapshots
+
+        self.stubs.Set(db, 'snapshot_get_all_by_project',
+                       stub_snapshot_get_all_by_project)
+        self.stubs.Set(volume.api.API, 'get', stubs.stub_volume_get)
+        req = fakes.HTTPRequest.blank('/v2/snapshots?include_public=True')
+        resp = self.controller.index(req)
+        self.assertEqual(len(resp['snapshots']), 3)
+
     @mock.patch('cinder.db.snapshot_metadata_get', return_value=dict())
     def test_snapshot_list_by_status(self, snapshot_metadata_get):
         def stub_snapshot_get_all_by_project(context, project_id):
@@ -341,9 +440,12 @@ class SnapshotApiTest(test.TestCase):
     def test_snapshot_list_by_volume(self, snapshot_metadata_get):
         def stub_snapshot_get_all_by_project(context, project_id):
             return [
-                stubs.stub_snapshot(1, volume_id='vol1', status='creating'),
-                stubs.stub_snapshot(2, volume_id='vol1', status='available'),
-                stubs.stub_snapshot(3, volume_id='vol2', status='available'),
+                stubs.stub_snapshot(1, project_id=project_id,
+                                    volume_id='vol1', status='creating'),
+                stubs.stub_snapshot(2, project_id=project_id,
+                                    volume_id='vol1', status='available'),
+                stubs.stub_snapshot(3, project_id=project_id,
+                                    volume_id='vol2', status='available'),
             ]
         self.stubs.Set(db, 'snapshot_get_all_by_project',
                        stub_snapshot_get_all_by_project)

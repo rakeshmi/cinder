@@ -1810,8 +1810,14 @@ def snapshot_get_all_for_cgsnapshot(context, cgsnapshot_id):
 
 
 @require_context
-def snapshot_get_all_by_project(context, project_id):
+def snapshot_get_all_by_project(context, project_id, include_public):
     authorize_project_context(context, project_id)
+    if(include_public is True):
+        return model_query(context, models.Snapshot).\
+            filter(or_(models.Snapshot.project_id == project_id,
+                       models.Snapshot.is_public == include_public)).\
+            options(joinedload('snapshot_metadata')).\
+            all()
     return model_query(context, models.Snapshot).\
         filter_by(project_id=project_id).\
         options(joinedload('snapshot_metadata')).\

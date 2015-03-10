@@ -41,7 +41,8 @@ def _get_default_snapshot_param():
             'display_description': 'Default description',
             'project_id': 'fake',
             'progress': '0%',
-            'expected_attrs': ['metadata']}
+            'expected_attrs': ['metadata'],
+            'is_public': False}
 
 
 def fake_snapshot_get(self, context, snapshot_id):

@@ -772,6 +772,15 @@ class MigrationsMixin(test_migrations.WalkVersionsMixin):
         backups = db_utils.get_table(engine, 'backups')
         self.assertNotIn('parent_id', backups.c)
 
+    def _check_040(self, engine, data):
+        snapshots = db_utils.get_table(engine, 'snapshots')
+        self.assertIsInstance(snapshots.c.is_public.type,
+                              self.BOOL_TYPE)
+
+    def _post_downgrade_040(self, engine):
+        snapshots = db_utils.get_table(engine, 'snapshots')
+        self.assertNotIn('is_public', snapshots.c)
+
     def test_walk_versions(self):
         self.walk_versions(True, False)
 

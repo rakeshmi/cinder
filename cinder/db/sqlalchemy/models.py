@@ -434,7 +434,7 @@ class Snapshot(BASE, CinderBase):
 
     provider_location = Column(String(255))
     provider_id = Column(String(255))
-
+    is_public = Column(Boolean, default=False)
     volume = relationship(Volume, backref="snapshots",
                           foreign_keys=volume_id,
                           primaryjoin='Snapshot.volume_id == Volume.id')
