@@ -1176,11 +1176,25 @@ def _volume_get(context, volume_id, session=None):
 
     return result
 
-
 @require_context
 def volume_get(context, volume_id):
     return _volume_get(context, volume_id)
 
+@require_context
+def volume_get_if_has_sharedSnapshot(context, volume_id, session=None):
+    result = _volume_get_query(context, session=session, project_only=True).\
+        filter_by(id=volume_id).\
+        first()
+    
+    if not result:
+	result = _volume_get_query(context, session=session).\
+        filter_by(id=volume_id).\
+        first()
+    if not result:
+        raise exception.VolumeNotFound(volume_id=volume_id)
+
+    return result
+	
 
 @require_admin_context
 def volume_get_all(context, marker, limit, sort_keys=None, sort_dirs=None,
@@ -1728,6 +1742,15 @@ def volume_admin_metadata_update(context, volume_id, metadata, delete):
 
 ###################
 
+def snapshot_share(context,snapshot_id,project_id):
+
+    session = get_session()
+    
+    values={"snapshot_id": snapshot_id, "tenant_id":snapshot_id}
+    with session.begin():
+        snapshot_ref = models.SharedSnapshot()
+	snapshot_ref.update({"snapshot_id":snapshot_id, "project_id":project_id})
+        session.add(snapshot_ref)
 
 @require_context
 def snapshot_create(context, values):
@@ -1743,6 +1766,22 @@ def snapshot_create(context, values):
         session.add(snapshot_ref)
 
         return _snapshot_get(context, values['id'], session=session)
+
+
+
+
+@require_admin_context
+def snapshot_reset_permission(context, snapshot_id):
+    session = get_session()
+    with session.begin():
+        model_query(context, models.Snapshot, session=session).\
+            filter_by(id=snapshot_id).\
+            update({'is_public': False})
+        model_query(context, models.SharedSnapshot, session=session).\
+            filter_by(snapshot_id=snapshot_id).\
+            update({'deleted': True,
+                    'deleted_at': timeutils.utcnow(),
+                    'updated_at': literal_column('updated_at')})
 
 
 @require_admin_context
@@ -1771,7 +1810,6 @@ def _snapshot_get(context, snapshot_id, session=None):
         options(joinedload('snapshot_metadata')).\
         filter_by(id=snapshot_id).\
         first()
-
     if not result:
         raise exception.SnapshotNotFound(snapshot_id=snapshot_id)
 
@@ -1781,6 +1819,30 @@ def _snapshot_get(context, snapshot_id, session=None):
 @require_context
 def snapshot_get(context, snapshot_id):
     return _snapshot_get(context, snapshot_id)
+
+
+
+@require_context
+def snapshot_get_from_sharedsnapshots(context, snapshot_id):
+    
+    result = model_query(context, models.Snapshot,
+                         ).\
+        options(joinedload('volume')).\
+        options(joinedload('snapshot_metadata')).\
+        filter(models.Snapshot.id==snapshot_id,models.Snapshot.is_public==True).\
+        first()
+    
+    if not result:
+        result = model_query(context, models.Snapshot).\
+        options(joinedload('sharedsnapshots')).\
+        filter(models.SharedSnapshot.snapshot_id==snapshot_id,models.SharedSnapshot.project_id==context.project_id).\
+        first()
+    
+    if not result:
+        raise exception.SnapshotNotFound(snapshot_id=snapshot_id)
+
+    return result
+
 
 
 @require_admin_context
@@ -1810,14 +1872,38 @@ def snapshot_get_all_for_cgsnapshot(context, cgsnapshot_id):
 
 
 @require_context
-def snapshot_get_all_by_project(context, project_id, include_public):
+def snapshot_get_all_by_project(context, project_id, include_public, include_shared):
     authorize_project_context(context, project_id)
-    if(include_public is True):
-        return model_query(context, models.Snapshot).\
+    
+    if(include_shared is True or include_public is True):
+	
+	if(include_shared is True and include_public is True):
+            return model_query(context, models.Snapshot).\
+            filter(or_(models.Snapshot.project_id == models.SharedSnapshot.project_id,
+            models.SharedSnapshot.snapshot_id== models.Snapshot.id,
+	    models.Snapshot.is_public== True,
+	    models.Snapshot.project_id== project_id),models.Snapshot.deleted_at == None,models.SharedSnapshot.deleted_at == None).\
+            options(joinedload('sharedsnapshots')).\
+            all()
+
+	if(include_shared is True):
+             
+	    return model_query(context, models.Snapshot).\
+            filter(or_(models.Snapshot.project_id == models.SharedSnapshot.project_id,
+            models.SharedSnapshot.snapshot_id== models.Snapshot.id,
+	    models.Snapshot.project_id==project_id),
+            models.Snapshot.deleted_at == None,models.SharedSnapshot.deleted_at == None).\
+            options(joinedload('sharedsnapshots')).\
+            all()
+
+        if(include_public is True):
+            return model_query(context, models.Snapshot).\
             filter(or_(models.Snapshot.project_id == project_id,
                        models.Snapshot.is_public == include_public)).\
             options(joinedload('snapshot_metadata')).\
             all()
+
+	
     return model_query(context, models.Snapshot).\
         filter_by(project_id=project_id).\
         options(joinedload('snapshot_metadata')).\

@@ -446,6 +446,17 @@ class Snapshot(BASE, CinderBase):
         primaryjoin='Snapshot.cgsnapshot_id == Cgsnapshot.id')
 
 
+class SharedSnapshot(BASE, CinderBase):
+    """Represents a shared snapshot"""
+    __tablename__ = 'sharedsnapshots'
+    snapshot_id = Column(String(255),ForeignKey('snapshots.id'), nullable=False)
+    project_id = Column(String(255))
+    __mapper_args__ = {
+        'primary_key':[snapshot_id,project_id]
+    }
+    snapshot = relationship(Snapshot, backref="sharedsnapshots",
+    			  foreign_keys=snapshot_id,
+                          primaryjoin='SharedSnapshot.snapshot_id == Snapshot.id')
 class SnapshotMetadata(BASE, CinderBase):
     """Represents a metadata key/value pair for a snapshot."""
     __tablename__ = 'snapshot_metadata'

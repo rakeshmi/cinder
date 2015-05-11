@@ -20,6 +20,8 @@ from cinder import db
 from cinder.i18n import _
 from cinder.openstack.common import log as logging
 
+from cinder.i18n import _
+from cinder.openstack.common import log as logging
 LOG = logging.getLogger(__name__)
 
 
@@ -27,11 +29,21 @@ def authorize(context, action_name):
     action = 'snapshot_actions:%s' % action_name
     extensions.extension_authorizer('snapshot', action)(context)
 
+#LOG.debug("SnapshotActionsController initialized")
 
 class SnapshotActionsController(wsgi.Controller):
+
     def __init__(self, *args, **kwargs):
         super(SnapshotActionsController, self).__init__(*args, **kwargs)
         LOG.debug("SnapshotActionsController initialized")
+	
+    @wsgi.action('os-reset_snapshot_permission')
+    def _reset_snapshot_permission(self, req, id, body):
+
+	context = req.environ['cinder.context']
+        authorize(context, 'update_snapshot_status')
+        snapshot = db.snapshot_reset_permission(context, id)
+        return webob.Response(status_int=202)   	
 
     @wsgi.action('os-update_snapshot_status')
     def _update_snapshot_status(self, req, id, body):
@@ -41,7 +53,6 @@ class SnapshotActionsController(wsgi.Controller):
            must start as 'creating' and be changed to 'available',
            'creating', or 'error'.
         """
-
         context = req.environ['cinder.context']
         authorize(context, 'update_snapshot_status')
 

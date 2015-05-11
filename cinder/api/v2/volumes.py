@@ -344,7 +344,7 @@ class VolumeController(wsgi.Controller):
         snapshot_id = volume.get('snapshot_id')
         if snapshot_id is not None:
             try:
-                kwargs['snapshot'] = self.volume_api.get_snapshot(context,
+                kwargs['snapshot'] = self.volume_api.get_snapshot_from_sharedsnapshots(context,
                                                                   snapshot_id)
             except exception.NotFound:
                 explanation = _('snapshot id:%s not found') % snapshot_id
@@ -356,7 +356,7 @@ class VolumeController(wsgi.Controller):
         if source_volid is not None:
             try:
                 kwargs['source_volume'] = \
-                    self.volume_api.get_volume(context,
+                    self.volume_api.volume_get_if_has_sharedSnapshot(context,
                                                source_volid)
             except exception.NotFound:
                 explanation = _('source volume id:%s not found') % source_volid

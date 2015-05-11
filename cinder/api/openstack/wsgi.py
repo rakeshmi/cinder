@@ -1069,7 +1069,6 @@ class Resource(wsgi.Application):
 
     def get_method(self, request, action, content_type, body):
         """Look up the action-specific method and its extensions."""
-
         # Look up the method
         try:
             if not self.controller:
@@ -1114,7 +1113,6 @@ def action(name):
     This is also overloaded to allow extensions to provide
     non-extending definitions of create and delete operations.
     """
-
     def decorator(func):
         func.wsgi_action = name
         return func

@@ -178,6 +178,8 @@ def volume_get(context, volume_id):
     """Get a volume or raise if it does not exist."""
     return IMPL.volume_get(context, volume_id)
 
+def volume_get_if_has_sharedSnapshot(context,volume_id):
+    return IMPL.volume_get_if_has_sharedSnapshot(context,volume_id)
 
 def volume_get_all(context, marker, limit, sort_keys=None, sort_dirs=None,
                    filters=None):
@@ -221,11 +223,14 @@ def volume_update(context, volume_id, values):
 
 ####################
 
-
+def snapshot_share(context, snapshot_id, tenant_id):
+    return IMPL.snapshot_share(context, snapshot_id, tenant_id)
 def snapshot_create(context, values):
     """Create a snapshot from the values dictionary."""
     return IMPL.snapshot_create(context, values)
 
+def snapshot_reset_permission(context,snapshot_id):
+    return IMPL.snapshot_reset_permission(context,snapshot_id)
 
 def snapshot_destroy(context, snapshot_id):
     """Destroy the snapshot or raise if it does not exist."""
@@ -237,15 +242,19 @@ def snapshot_get(context, snapshot_id):
     return IMPL.snapshot_get(context, snapshot_id)
 
 
+def snapshot_get_from_sharedsnapshots(context,snapshot_id):
+    """ Get a snapshot if Tenant has a snapshot or it's shared"""
+    return IMPL.snapshot_get_from_sharedsnapshots(context,snapshot_id)
+
 def snapshot_get_all(context):
     """Get all snapshots."""
     return IMPL.snapshot_get_all(context)
 
 
-def snapshot_get_all_by_project(context, project_id, include_public=False):
+def snapshot_get_all_by_project(context, project_id, include_public=False,include_shared = False):
     """Get all snapshots belonging to a project."""
     return IMPL.snapshot_get_all_by_project(context, project_id,
-                                            include_public)
+                                            include_public,include_shared)
 
 
 def snapshot_get_all_for_cgsnapshot(context, project_id):
