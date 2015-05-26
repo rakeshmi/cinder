@@ -455,6 +455,11 @@ class VolumeSizeExceedsAvailableQuota(QuotaError):
                 "%(consumed)sG has been consumed.")
 
 
+class VolumeSizeExceedsLimit(QuotaError):
+    message = _("Requested volume size %(size)d exceeds,"
+                "allowed maximum limit is %(limit)d ")
+
+
 class VolumeBackupSizeExceedsAvailableQuota(QuotaError):
     message = _("Requested backup exceeds allowed Backup gigabytes "
                 "quota. Requested %(requested)sG, quota is %(quota)sG and "
