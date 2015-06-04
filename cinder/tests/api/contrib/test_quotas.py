@@ -28,11 +28,12 @@ from cinder import db
 from cinder import test
 
 
-def make_body(root=True, gigabytes=1000, snapshots=10,
-              volumes=10, tenant_id='foo'):
+def make_body(root=True, gigabytes=1024, snapshots=10,
+              volumes=10, tenant_id='foo', per_volume_gigabytes=1024):
     resources = {'gigabytes': gigabytes,
                  'snapshots': snapshots,
-                 'volumes': volumes}
+                 'volumes': volumes,
+                 'per_volume_gigabytes': per_volume_gigabytes, }
     # need to consider preexisting volume types as well
     volume_types = db.volume_type_get_all(context.get_admin_context())
     for volume_type in volume_types:

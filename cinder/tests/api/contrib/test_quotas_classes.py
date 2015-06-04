@@ -31,12 +31,13 @@ from cinder.volume import volume_types
 QUOTAS = quota.QUOTAS
 
 
-def make_body(root=True, gigabytes=1000, snapshots=10,
+def make_body(root=True, gigabytes=1024, snapshots=10,
               volumes=10, volume_types_faked=None,
-              tenant_id='foo'):
+              tenant_id='foo', per_volume_gigabytes=1024):
     resources = {'gigabytes': gigabytes,
                  'snapshots': snapshots,
-                 'volumes': volumes}
+                 'volumes': volumes,
+                 'per_volume_gigabytes': per_volume_gigabytes}
     if not volume_types_faked:
         volume_types_faked = {'fake_type': None}
     for volume_type in volume_types_faked:

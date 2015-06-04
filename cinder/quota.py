@@ -39,7 +39,7 @@ quota_opts = [
                default=10,
                help='number of volume snapshots allowed per project'),
     cfg.IntOpt('quota_gigabytes',
-               default=1000,
+               default=1024,
                help='number of volume gigabytes (snapshots are also included) '
                     'allowed per project'),
     cfg.IntOpt('reservation_expire',
@@ -56,7 +56,10 @@ quota_opts = [
                help='default driver to use for quota checks'),
     cfg.BoolOpt('use_default_quota_class',
                 default=True,
-                help='whether to use default quota class for default quota'), ]
+                help='whether to use default quota class for default quota'),
+    cfg.IntOpt('per_volume_size_limit',
+               default=1024,
+               help='max volume size allowed for a tenant, in gigabytes'), ]
 
 CONF = cfg.CONF
 CONF.register_opts(quota_opts)
@@ -509,7 +512,8 @@ class ReservableResource(BaseResource):
         """
 
         super(ReservableResource, self).__init__(name, flag=flag)
-        self.sync = sync
+        if sync:
+            self.sync = sync
 
 
 class AbsoluteResource(BaseResource):
@@ -855,6 +859,7 @@ class VolumeTypeQuotaEngine(QuotaEngine):
         result = {}
         # Global quotas.
         argses = [('volumes', '_sync_volumes', 'quota_volumes'),
+                  ('per_volume_gigabytes', None, 'per_volume_size_limit'),
                   ('snapshots', '_sync_snapshots', 'quota_snapshots'),
                   ('gigabytes', '_sync_gigabytes', 'quota_gigabytes'), ]
         for args in argses:

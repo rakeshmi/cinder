@@ -411,6 +411,11 @@ class VolumeSizeExceedsAvailableQuota(QuotaError):
                 "%(consumed)sG has been consumed.")
 
 
+class VolumeSizeExceedsLimit(QuotaError):
+    message = _("Requested volume size %(size)d is larger than "
+                "maximum allowed limit %(limit)d.")
+
+
 class VolumeLimitExceeded(QuotaError):
     message = _("Maximum number of volumes allowed (%(allowed)d) exceeded")
 

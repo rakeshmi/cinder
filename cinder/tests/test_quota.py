@@ -85,6 +85,19 @@ class QuotaIntegrationTestCase(test.TestCase):
         snapshot['status'] = 'available'
         return db.snapshot_create(self.context, snapshot)
 
+    def test_volume_size_limit_exceeds(self):
+        resource = 'volumes_%s' % self.volume_type_name
+        db.quota_class_create(self.context, 'default', resource, 1)
+        flag_args = {
+            'quota_volumes': 10,
+            'quota_gigabytes': 1024,
+            'per_volume_size_limit': 5
+        }
+        self.flags(**flag_args)
+        self.assertRaises(exception.VolumeSizeExceedsLimit,
+                          volume.API().create,
+                          self.context, 10, '', '',)
+
     def test_too_many_volumes(self):
         volume_ids = []
         for i in range(CONF.quota_volumes):
@@ -684,7 +697,8 @@ class VolumeTypeQuotaEngineTestCase(test.TestCase):
 
         engine = quota.VolumeTypeQuotaEngine()
         self.assertEqual(engine.resource_names,
-                         ['gigabytes', 'snapshots', 'volumes'])
+                         ['gigabytes', 'per_volume_gigabytes',
+                          'snapshots', 'volumes', ])
 
     def test_volume_type_resources(self):
         ctx = context.RequestContext('admin', 'admin', is_admin=True)
@@ -709,7 +723,8 @@ class VolumeTypeQuotaEngineTestCase(test.TestCase):
         engine = quota.VolumeTypeQuotaEngine()
         self.assertEqual(engine.resource_names,
                          ['gigabytes', 'gigabytes_type1', 'gigabytes_type_2',
-                          'snapshots', 'snapshots_type1', 'snapshots_type_2',
+                          'per_volume_gigabytes', 'snapshots',
+                          'snapshots_type1', 'snapshots_type_2',
                           'volumes', 'volumes_type1', 'volumes_type_2'])
         db.volume_type_destroy(ctx, vtype['id'])
         db.volume_type_destroy(ctx, vtype2['id'])
@@ -747,7 +762,8 @@ class DbQuotaDriverTestCase(test.TestCase):
             dict(
                 volumes=10,
                 snapshots=10,
-                gigabytes=1000, ))
+                gigabytes=1024,
+                per_volume_gigabytes=1024, ))
 
     def _stub_quota_class_get_default(self):
         # Stub out quota_class_get_default
@@ -755,7 +771,7 @@ class DbQuotaDriverTestCase(test.TestCase):
             self.calls.append('quota_class_get_default')
             return dict(volumes=10,
                         snapshots=10,
-                        gigabytes=1000,)
+                        gigabytes=1024,)
         self.stubs.Set(db, 'quota_class_get_default', fake_qcgd)
 
     def _stub_volume_type_get_all(self):
@@ -780,7 +796,8 @@ class DbQuotaDriverTestCase(test.TestCase):
         self.assertEqual(self.calls, ['quota_class_get_all_by_name'])
         self.assertEqual(result, dict(volumes=10,
                                       gigabytes=500,
-                                      snapshots=10))
+                                      snapshots=10,
+                                      per_volume_gigabytes=1024, ))
 
     def test_get_class_quotas_no_defaults(self):
         self._stub_quota_class_get_all_by_name()
@@ -822,15 +839,19 @@ class DbQuotaDriverTestCase(test.TestCase):
                                       'quota_usage_get_all_by_project',
                                       'quota_class_get_all_by_name',
                                       'quota_class_get_default', ])
-        self.assertEqual(result, dict(volumes=dict(limit=10,
-                                                   in_use=2,
-                                                   reserved=0, ),
-                                      snapshots=dict(limit=10,
-                                                     in_use=2,
-                                                     reserved=0, ),
-                                      gigabytes=dict(limit=50,
-                                                     in_use=10,
-                                                     reserved=0, ), ))
+        self.assertEqual(result,
+                         dict(volumes=dict(limit=10,
+                                           in_use=2,
+                                           reserved=0, ),
+                              snapshots=dict(limit=10,
+                                             in_use=2,
+                                             reserved=0, ),
+                              gigabytes=dict(limit=50,
+                                             in_use=10,
+                                             reserved=0, ),
+                              per_volume_gigabytes=dict(in_use=0,
+                                                        limit=1024,
+                                                        reserved=0), ))
 
     def test_get_project_quotas_alt_context_no_class(self):
         self._stub_get_by_project()
@@ -842,15 +863,19 @@ class DbQuotaDriverTestCase(test.TestCase):
         self.assertEqual(self.calls, ['quota_get_all_by_project',
                                       'quota_usage_get_all_by_project',
                                       'quota_class_get_default', ])
-        self.assertEqual(result, dict(volumes=dict(limit=10,
-                                                   in_use=2,
-                                                   reserved=0, ),
-                                      snapshots=dict(limit=10,
-                                                     in_use=2,
-                                                     reserved=0, ),
-                                      gigabytes=dict(limit=50,
-                                                     in_use=10,
-                                                     reserved=0, ), ))
+        self.assertEqual(result,
+                         dict(volumes=dict(limit=10,
+                                           in_use=2,
+                                           reserved=0, ),
+                              snapshots=dict(limit=10,
+                                             in_use=2,
+                                             reserved=0, ),
+                              gigabytes=dict(limit=50,
+                                             in_use=10,
+                                             reserved=0, ),
+                              per_volume_gigabytes=dict(limit=1024,
+                                                        in_use=0,
+                                                        reserved=0, ), ))
 
     def test_get_project_quotas_alt_context_with_class(self):
         self._stub_get_by_project()
@@ -863,15 +888,19 @@ class DbQuotaDriverTestCase(test.TestCase):
                                       'quota_usage_get_all_by_project',
                                       'quota_class_get_all_by_name',
                                       'quota_class_get_default', ])
-        self.assertEqual(result, dict(volumes=dict(limit=10,
-                                                   in_use=2,
-                                                   reserved=0, ),
-                                      snapshots=dict(limit=10,
-                                                     in_use=2,
-                                                     reserved=0, ),
-                                      gigabytes=dict(limit=50,
-                                                     in_use=10,
-                                                     reserved=0, ), ))
+        self.assertEqual(result,
+                         dict(volumes=dict(limit=10,
+                                           in_use=2,
+                                           reserved=0, ),
+                              snapshots=dict(limit=10,
+                                             in_use=2,
+                                             reserved=0, ),
+                              gigabytes=dict(limit=50,
+                                             in_use=10,
+                                             reserved=0, ),
+                              per_volume_gigabytes=dict(limit=1024,
+                                                        in_use=0,
+                                                        reserved=0, ), ))
 
     def test_get_project_quotas_no_defaults(self):
         self._stub_get_by_project()
@@ -905,9 +934,11 @@ class DbQuotaDriverTestCase(test.TestCase):
         self.assertEqual(self.calls, ['quota_get_all_by_project',
                                       'quota_class_get_all_by_name',
                                       'quota_class_get_default', ])
-        self.assertEqual(result, dict(volumes=dict(limit=10, ),
-                                      snapshots=dict(limit=10, ),
-                                      gigabytes=dict(limit=50, ), ))
+        self.assertEqual(result,
+                         dict(volumes=dict(limit=10, ),
+                              snapshots=dict(limit=10, ),
+                              gigabytes=dict(limit=50, ),
+                              per_volume_gigabytes=dict(limit=1024,), ))
 
     def _stub_get_project_quotas(self):
         def fake_get_project_quotas(context, resources, project_id,
