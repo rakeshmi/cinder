@@ -440,6 +440,7 @@ class API(base.Base):
         return volumes
 
     def get_snapshot(self, context, snapshot_id):
+        check_policy(context, 'get_snapshot')
         return objects.Snapshot.get_by_id(context, snapshot_id)
 
     def get_volume(self, context, volume_id):

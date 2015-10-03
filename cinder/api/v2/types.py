@@ -24,6 +24,7 @@ from cinder.api import xmlutil
 from cinder import exception
 from cinder.i18n import _
 from cinder import utils
+from cinder.volume import api as volume_api
 from cinder.volume import volume_types
 
 
@@ -59,6 +60,8 @@ class VolumeTypesController(wsgi.Controller):
     @wsgi.serializers(xml=VolumeTypesTemplate)
     def index(self, req):
         """Returns the list of volume types."""
+        context = req.environ['cinder.context']
+        volume_api.check_policy(context, 'get_all_types')
         limited_types = self._get_volume_types(req)
         req.cache_resource(limited_types, name='types')
         return self._view_builder.index(req, limited_types)

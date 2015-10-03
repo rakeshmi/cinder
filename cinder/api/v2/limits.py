@@ -33,6 +33,7 @@ from cinder.api.openstack import wsgi
 from cinder.api.views import limits as limits_views
 from cinder.api import xmlutil
 from cinder.i18n import _
+import cinder.policy
 from cinder import quota
 from cinder import wsgi as base_wsgi
 
@@ -48,6 +49,10 @@ PER_DAY = 60 * 60 * 24
 
 
 limits_nsmap = {None: xmlutil.XMLNS_COMMON_V10, 'atom': xmlutil.XMLNS_ATOM}
+
+
+def check_policy(context, action):
+    cinder.policy.enforce(context, action, None)
 
 
 class LimitsTemplate(xmlutil.TemplateBuilder):
@@ -82,6 +87,7 @@ class LimitsController(wsgi.Controller):
     def index(self, req):
         """Return all global and rate limit information."""
         context = req.environ['cinder.context']
+        check_policy(context, 'get_all_limits')
         quotas = QUOTAS.get_project_quotas(context, context.project_id,
                                            usages=False)
         abs_limits = dict((k, v['limit']) for k, v in quotas.items())

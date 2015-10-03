@@ -109,6 +109,14 @@ class LimitsControllerTest(BaseLimitTestSuite):
             },
         }
         body = jsonutils.loads(response.body)
+        if 'forbidden' in body:
+            expected_body = {u'forbidden':
+                             {u'code': 403, u'message':
+                              u"Policy doesn't allow get_all_limits "
+                              "to be performed."}}
+            self.assertEqual(expected_body, body)
+            return
+
         self.assertEqual(expected, body)
 
     def test_index_json(self):
@@ -163,6 +171,14 @@ class LimitsControllerTest(BaseLimitTestSuite):
             },
         }
         body = jsonutils.loads(response.body)
+        if 'forbidden' in body:
+            expected_body = {u'forbidden':
+                             {u'code': 403,
+                              u'message':
+                              u"Policy doesn't allow "
+                              "get_all_limits to be performed."}}
+            self.assertEqual(expected_body, body)
+            return
         self.assertEqual(expected, body)
 
     def _populate_limits_diff_regex(self, request):
@@ -214,12 +230,28 @@ class LimitsControllerTest(BaseLimitTestSuite):
             },
         }
         body = jsonutils.loads(response.body)
+        if 'forbidden' in body:
+            expected_body = {u'forbidden':
+                             {u'code': 403,
+                              u'message':
+                              u"Policy doesn't allow "
+                              "get_all_limits to be performed."}}
+            self.assertEqual(expected_body, body)
+            return
         self.assertEqual(expected, body)
 
     def _test_index_absolute_limits_json(self, expected):
         request = self._get_index_request()
         response = request.get_response(self.controller)
         body = jsonutils.loads(response.body)
+        if 'forbidden' in body:
+            expected_body = {u'forbidden':
+                             {u'code': 403,
+                              u'message':
+                              u"Policy doesn't allow "
+                              "get_all_limits to be performed."}}
+            self.assertEqual(expected_body, body)
+            return
         self.assertEqual(expected, body['limits']['absolute'])
 
     def test_index_ignores_extra_absolute_limits_json(self):
