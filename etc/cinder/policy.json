@@ -17,7 +17,7 @@
     "volume:get_all_snapshots": "!",
     "volume:create_snapshot":"!",
     "volume:delete_snapshot":"!",
-    "volume:extend":"!",
+    "volume:extend":"",
     "volume:update_readonly_flag": "!",
     "volume:retype":"!",
 
@@ -87,5 +87,5 @@
     "associate_qos_with_type":"!",
     "volume:get_all_types":"!",
     "get_volume_metadata":"!",
-    "volume_extension:volume_unmanage":"!",
+    "volume_extension:volume_unmanage":"!"
 }
